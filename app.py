@@ -168,9 +168,9 @@ if mode == "교수 관리" and pw == "3383":
                 ).properties(height=400)
                 st.altair_chart(chart, use_container_width=True)
             
-            with st.expander("🎓 학생별 이번 주 참여 점수 확인"):
+            with st.expander("🎓 학생별 이번 주 참여 점수 및 유형 확인", expanded=True):
                 if sel_week == 11:
-                    # 11주차: 처분효과 위험 지수 및 평균 계산 (교수님 화면에서만 처리)
+                    # 11주차: 처분효과 위험 지수 계산 및 유형 판별 로직
                     scores = []
                     for std, group in df.groupby('std_name'):
                         score = 0
@@ -178,14 +178,32 @@ if mode == "교수 관리" and pw == "3383":
                             q = next((q for q in current_week_data if q['id'] == row['item_id']), None)
                             if q and 'bias_ans' in q and row['response'].startswith(q['bias_ans']):
                                 score += q['weight']
-                        scores.append({'학생 이름': std, '처분효과 위험 지수': score})
+                        
+                        # 점수 기준에 따른 유형 텍스트 할당 (조언 부분 삭제)
+                        if score <= 30:
+                            p_type = "냉철한 전략가형"
+                        elif score <= 60:
+                            p_type = "전형적인 개인투자자형"
+                        elif score <= 85:
+                            p_type = "본능 충실형"
+                        else:
+                            p_type = "처분효과 고위험군"
+                            
+                        scores.append({
+                            '학생 이름': std, 
+                            '위험 지수': int(score),
+                            '투자자 유형': p_type
+                        })
                     
                     score_df = pd.DataFrame(scores)
                     if not score_df.empty:
-                        avg_score = score_df['처분효과 위험 지수'].mean()
+                        avg_score = score_df['위험 지수'].mean()
                         st.metric(f"📈 11주차 반 평균 처분효과 위험 지수", f"{avg_score:.1f}점")
-                        st.dataframe(score_df.sort_values(by='처분효과 위험 지수', ascending=False), use_container_width=True)
+                        
+                        # 조언 항목이 제외된 데이터프레임 출력
+                        st.dataframe(score_df.sort_values(by='위험 지수', ascending=False), use_container_width=True)
                 else:
-                    # 다른 주차의 일반 점수 집계 (학번 제외)
+                    # 다른 주차의 일반 참여 점수 집계
                     summary = df.groupby(['std_name'])['score'].sum().reset_index()
-                    st.dataframe(summary.sort_values(by='score', ascending=False), use_container_width=True)
+                    summary.columns = ['학생 이름', '참여 점수']
+                    st.dataframe(summary.sort_values(by='참여 점수', ascending=False), use_container_width=True)
